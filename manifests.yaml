@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tesla-extractor
+  namespace: tesla
+spec:
+  selector:
+    matchLabels:
+      app: tesla-extractor
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tesla-extractor
+        namespace: tesla
+    spec:
+      containers:
+      - name: tesla-extractor
+        image: gcr.io/andershaf-87/tesla-extractor-js:6
+        env:
+        - name: COGNITE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cognite-api-key
+              key: cognite-api-key
+        - name: TESLA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tesla-password
+              key: tesla-password
+        - name: TESLA_USERNAME
+          value: andershaf@gmail.com
+        - name: COGNITE_PROJECT
+          value: andershaf
+        - name: VEHICLE_INDEX
+          value: "0"
