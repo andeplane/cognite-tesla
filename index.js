@@ -10,6 +10,7 @@ const stream_columns = ['speed', 'odometer', 'soc', 'elevation', 'est_heading', 
 const stream_columns_alias = ['speed', 'odometer', 'battery_level', 'elevation', 'heading', 'latitude', 'longitude', 'power', 'shift_state', 'battery_range', 'est_battery_range', 'est_heading'];  
 
 let is_streaming = false;
+let last_streaming_updated_at = 0;
 
 const argv = yargs
     .command('--username', 'Username for your Tesla account')
@@ -40,7 +41,7 @@ const getToken = async (username, password) => {
   }
 
   // var token = JSON.stringify(result.authToken);
-  return result.authToken;
+  return {token: result.authToken, expiresIn: result.body.expires_in};
 }
 
 const startStreaming = async (options, onError, onMessage) => {
@@ -133,9 +134,15 @@ const sample = async (options, prevState) => {
   let nextSampleAt = 1000;
   try {
     const { client, timeseriesNames } = options;
-    let { vehicle, token } = options;
-    if (!token) {
-      token = await getToken(options.username, options.password);
+    let { vehicle, token, tokenExpires } = options;
+    let expiresIn;
+
+    const now = new Date().getTime()/1000; // convert to s
+    if (!token || now > tokenExpires - 60) {
+      ({token, expiresIn} = await getToken(options.username, options.password));
+      console.log("Got token ", token);
+      tokenExpires = now + expiresIn;
+      vehicle = undefined; // refresh
     }
 
     if (!vehicle) {
@@ -147,7 +154,7 @@ const sample = async (options, prevState) => {
     const data = await fetchData(token, vehicle.id_s);
     insertDataPoints(client, data, timeseriesNames);
     
-    options = {token, username, client, timeseriesNames, vehicle};
+    options = {token, tokenExpires, username, client, timeseriesNames, vehicle};
     state = {
       isDriving: data.shift_state != null,
       isCharging: data.time_to_full_charge > 0,
@@ -166,6 +173,12 @@ const sample = async (options, prevState) => {
       nextSampleAt = 21 * 60000;
     }
 
+    if (is_streaming && now - last_streaming_updated_at > 60) {
+      // We are streaming, but for some reason there has been more than 60 seconds since last update,
+      // something is probably wrong and we should start a new streaming connection.
+      is_streaming = false;
+    }
+
     if (!is_streaming && state.isDriving) {
       // We may need to refresh the vehicle token, so let's just do it for every streaming start
       console.log("Fetching vehicles...");
@@ -175,6 +188,7 @@ const sample = async (options, prevState) => {
       console.log("Using vehicle ", vehicle);
 
       is_streaming = true;
+      last_streaming_updated_at = now;
       console.log("Starting streaming ...")
       startStreaming(options, (err) => {
         console.log('websocket error: ' + err);
@@ -218,7 +232,7 @@ const apiKey = process.env.COGNITE_API_KEY !== undefined ? process.env.COGNITE_A
 const vehicleIndex = process.env.VEHICLE_INDEX !== undefined ? process.env.VEHICLE_INDEX : argv.vehicleindex;
 
 if (argv.gettoken) {
-  getToken(username, password).then((token) => {
+  getToken(username, password).then(({token}) => {
     console.log(token);
   });
 } else if (argv.listvehicles) {
