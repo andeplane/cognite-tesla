@@ -1,8 +1,8 @@
+import argparse
 import json
 import os
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Asset, TimeSeries
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--apikey", required=True)
