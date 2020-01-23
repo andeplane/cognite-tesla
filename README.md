@@ -14,7 +14,7 @@ Install the extractor with
 If you have one car, you can start sampling by running this command (you can also specify input variables as environment variables where `--vehicleindex` is specified as `VEHICLE_INDEX`).
 
 ```
-node index.js \
+cognite-tesla \
   --username $TESLA_USERNAME \
   --password $TESLA_PASSWORD \
   --project $COGNITE_PROJECT \ 
@@ -24,7 +24,7 @@ node index.js \
 
 If you have multiple cars, list the vehicles with
 ```
-node index.js \
+cognite-tesla \
   --username $TESLA_USERNAME \
   --password $TESLA_PASSWORD \
   --listvehicles

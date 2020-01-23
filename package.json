@@ -1,6 +1,6 @@
 {
   "name": "cognite-tesla",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A Tesla-extractor for Cognite Data Fusion",
   "main": "index.js",
   "bin": {
