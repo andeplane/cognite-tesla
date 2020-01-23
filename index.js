@@ -29,19 +29,23 @@ const argv = yargs
     .alias('token', 't')
     .argv;
 
-function createAssetHierarchy(cogniteClient) {
-
-}
-
-const getToken = async (username, password) => {
-  const result = await tjs.loginAsync(username, password);
+const getToken = async (options) => {
+  const result = await tjs.loginAsync(options.username, options.password);
   if (result.error) {
     console.log(JSON.stringify(result.error));
     process.exit(1);
   }
 
-  // var token = JSON.stringify(result.authToken);
   return {token: result.authToken, expiresIn: result.body.expires_in};
+}
+
+const listVehicles = async (options) => {
+  let { token } = options;
+  if (!token) {
+    ({token} = await getToken(options));
+  }
+  const vehicles = await tjs.vehiclesAsync({authToken: token});
+  return vehicles
 }
 
 const startStreaming = async (options, onError, onMessage) => {
@@ -139,15 +143,14 @@ const sample = async (options, prevState) => {
 
     const now = new Date().getTime()/1000; // convert to s
     if (!token || now > tokenExpires - 60) {
-      ({token, expiresIn} = await getToken(options.username, options.password));
-      console.log("Got token ", token);
+      ({token, expiresIn} = await getToken(options));
       tokenExpires = now + expiresIn;
       vehicle = undefined; // refresh
     }
 
     if (!vehicle) {
       console.log("Fetching vehicles...");
-      const vehicles = await tjs.vehiclesAsync({ authToken: token })
+      const vehicles = await listVehicles(options);
       vehicle = vehicles[options.vehicleIndex];
       console.log("Using vehicle ", vehicle);
     }
@@ -182,7 +185,7 @@ const sample = async (options, prevState) => {
     if (!is_streaming && state.isDriving) {
       // We may need to refresh the vehicle token, so let's just do it for every streaming start
       console.log("Fetching vehicles...");
-      const vehicles = await listVehicles(token);
+      const vehicles = await listVehicles(options);
       vehicle = vehicles[options.vehicleIndex];
       options.vehicle = vehicle;
       console.log("Using vehicle ", vehicle);
@@ -224,7 +227,7 @@ const sample = async (options, prevState) => {
   setTimeout(() => sample(options, state), nextSampleAt);
 }
 
-const token = process.env.TESLA_TOKEN !== undefined ? process.env.TESLA_TOKEN : argv.token;
+let token = process.env.TESLA_TOKEN !== undefined ? process.env.TESLA_TOKEN : argv.token;
 const username = process.env.TESLA_USERNAME !== undefined ? process.env.TESLA_USERNAME : argv.username;
 const password = process.env.TESLA_PASSWORD !== undefined ? process.env.TESLA_PASSWORD : argv.password;
 const project = process.env.COGNITE_PROJECT !== undefined ? process.env.COGNITE_PROJECT : argv.project;
@@ -236,7 +239,7 @@ if (argv.gettoken) {
     console.log(token);
   });
 } else if (argv.listvehicles) {
-  listVehicles(token).then((vehicles) => {
+  listVehicles({ token, username, password }).then(vehicles => {
     console.log(vehicles);
   });
 } else {
