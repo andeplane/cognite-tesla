@@ -154,7 +154,7 @@ const sample = async (options, prevState) => {
       console.log("Fetching vehicles...");
       const vehicles = await listVehicles(options);
       vehicle = vehicles[options.vehicleIndex];
-      console.log("Using vehicle ", vehicle);
+      console.log("Using vehicle ", vehicle.display_name);
     }
     const data = await fetchData(token, vehicle.id_s);
     insertDataPoints(client, data, timeseriesNames);
@@ -191,7 +191,7 @@ const sample = async (options, prevState) => {
       const vehicles = await listVehicles(options);
       vehicle = vehicles[options.vehicleIndex];
       options.vehicle = vehicle;
-      console.log("Using vehicle ", vehicle);
+      console.log("Using vehicle ", vehicle.display_name);
 
       is_streaming = true;
       last_streaming_updated_at = now;
