@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const tjs = require('teslajs');
 const yargs = require('yargs');
 const WebSocket = require('ws');
@@ -114,7 +116,7 @@ const insertDataPoints = async (client, data, timeseriesNames) => {
     })
   });
   client.datapoints.insert(items)
-  console.log(`${moment.utc().format('YYYY/MM/D, HH:mm:ss.SSS')} Inserted ${items.length} data points (${data["speed"]}, ${data["power"]})`)
+  console.log(`${moment.utc().format('YYYY/MM/D, HH:mm:ss.SSS')} Inserted ${items.length} data points.`)
 }
 
 const fetchData = async (token, vehicleID) => {
@@ -168,11 +170,12 @@ const sample = async (options, prevState) => {
       nextSampleAt = 0;
     }
 
-    if (
-      state.isSleeping || 
-      (!state.isDriving && prevState.isDriving)
-    ) {
-      // If we are sleeping, or the car just went from driving to not driving, sleep for 21 minutes
+    if (state.isSleeping) {
+      nextSampleAt = 5 * 60000;
+    }
+
+    if (!state.isDriving && prevState.isDriving) {
+      // If the car went from driving to not driving, sleep for 21 minutes to allow sleep
       nextSampleAt = 21 * 60000;
     }
 
@@ -224,6 +227,7 @@ const sample = async (options, prevState) => {
     options.token = undefined;
   }
 
+  console.log(`Next sample in ${nextSampleAt/1000} seconds.`);
   setTimeout(() => sample(options, state), nextSampleAt);
 }
 
@@ -234,31 +238,65 @@ const project = process.env.COGNITE_PROJECT !== undefined ? process.env.COGNITE_
 const apiKey = process.env.COGNITE_API_KEY !== undefined ? process.env.COGNITE_API_KEY : argv.apikey;
 const vehicleIndex = process.env.VEHICLE_INDEX !== undefined ? process.env.VEHICLE_INDEX : argv.vehicleindex;
 
+const validateInput = (requiredList) => {
+  const options = { token, username, password, project, apikey: apiKey, vehicleindex: vehicleIndex };
+  let foundAll = true;
+  requiredList.forEach(required => {
+    if (options[required] == null) {
+      console.log("Missing input", required);
+      foundAll = false;
+    }
+  });
+
+  if (!foundAll) {
+    console.log("\nRun with\ncognite-tesla -u $TESLA_USERNAME -p $TESLA_PASSWORD --project $COGNITE_PROJECT --apikey $COGNITE_API_KEY --vehicleindex 0")
+    process.exit(1);
+  }
+}
+
 if (argv.gettoken) {
+  validateInput(['username', 'password']);
   getToken(username, password).then(({token}) => {
     console.log(token);
   });
 } else if (argv.listvehicles) {
-  listVehicles({ token, username, password }).then(vehicles => {
+  validateInput(['username', 'password']);
+  listVehicles({ username, password }).then(vehicles => {
     console.log(vehicles);
   });
 } else {
+  if (token) {
+    validateInput(['username', 'token', 'project', 'apikey', 'vehicleindex']);
+  } else {
+    validateInput(['username', 'password', 'project', 'apikey', 'vehicleindex']);
+  }
+
   const client = new CogniteClient({ appId: 'TeslaExtractor' });
   client.loginWithApiKey({
     project,
     apiKey,
   });
 
-  const timeseries = client.timeseries.list({rootAssetIds: [5410924510734447], limit: 1000}).autoPagingToArray({limit: -1}).then(timeseries => {
-    const timeseriesNames = timeseries.map( ts => ts.name);
-    options = {
-      username,
-      password,
-      token, 
-      client, 
-      timeseriesNames, 
-      vehicleIndex, 
+  client.assets.retrieve([{externalId: 'tesla'}]).then(assets => {
+    if (assets.length === 0) {
+      console.log("Could not find Tesla root asset. Remember to create asset hierarchy first (see github repo).")
+      process.exit(1);
     }
-    sample(options, {});
+    const assetId = assets[0].id;
+    console.log("Found Tesla root asset with id ", assetId);
+    client.timeseries.list({rootAssetIds: [assetId], limit: 1000}).autoPagingToArray({limit: -1}).then(timeseries => {
+      const timeseriesNames = timeseries.map( ts => ts.name);
+      options = {
+        username,
+        password,
+        token, 
+        client, 
+        timeseriesNames, 
+        vehicleIndex, 
+      }
+      // Assume that the car is sleeping first time
+      sample(options, {isSleeping: true});
+    });
   });
+
 }
