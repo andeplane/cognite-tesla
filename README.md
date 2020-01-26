@@ -9,7 +9,7 @@ You need to have the Cognite SDK installed. To create the asset hierarchy and co
 ## Run the extractor
 Install the extractor with
 
-`npm install cognite-tesla`
+`npm install -g cognite-tesla`
 
 If you have one car, you can start sampling by running this command (you can also specify input variables as environment variables where `--vehicleindex` is specified as `VEHICLE_INDEX`).
 
