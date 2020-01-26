@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: tesla-extractor
-        image: gcr.io/andershaf-87/tesla-extractor-js:6
+        image: gcr.io/andershaf-87/tesla-extractor-js:17
         env:
         - name: COGNITE_API_KEY
           valueFrom:

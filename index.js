@@ -145,13 +145,21 @@ const sample = async (options, prevState) => {
 
     const now = new Date().getTime()/1000; // convert to s
     if (!token || now > tokenExpires - 60) {
+      console.log("No token or outdated token, getting new ...");
+      let oldToken = token;
       ({token, expiresIn} = await getToken(options));
-      tokenExpires = now + expiresIn;
-      vehicle = undefined; // refresh
+      if (token) {
+        tokenExpires = now + expiresIn;
+        vehicle = undefined; // refresh
+        options.token = token;
+        options.tokenExpires = tokenExpires;
+      } else {
+        console.log("Failed getting token. Putting back old token");
+        token = oldToken;
+      }
     }
 
     if (!vehicle) {
-      console.log("Fetching vehicles...");
       const vehicles = await listVehicles(options);
       vehicle = vehicles[options.vehicleIndex];
       console.log("Using vehicle ", vehicle.display_name);
@@ -159,7 +167,7 @@ const sample = async (options, prevState) => {
     const data = await fetchData(token, vehicle.id_s);
     insertDataPoints(client, data, timeseriesNames);
     
-    options = {token, tokenExpires, username, client, timeseriesNames, vehicle};
+    options = {token, tokenExpires, username, password, client, timeseriesNames, vehicle, vehicleIndex};
     state = {
       isDriving: data.shift_state != null,
       isCharging: data.time_to_full_charge > 0,
