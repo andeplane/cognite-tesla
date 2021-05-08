@@ -30,7 +30,7 @@
   "homepage": "https://github.com/andeplane/cognite-tesla#readme",
   "dependencies": {
     "@cognite/sdk": "^2.16.2",
-    "json-bigint": "^0.3.0",
+    "json-bigint": "^1.0.0",
     "moment": "^2.24.0",
     "teslajs": "^4.7.6",
     "ws": "^7.2.1",
